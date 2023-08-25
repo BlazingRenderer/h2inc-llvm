@@ -1,0 +1,8 @@
+/cmake-build-*/
+**/.idea/
+**/.vs/
+**/.vscode/
+**/*.code-workspace
+/result
+/result-*
+/build/
