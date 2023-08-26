@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.23)
-project(h2inc-llvm LANGUAGES CXX)
+project(h2inc-llvm LANGUAGES C CXX)
 
 find_package(Clang REQUIRED)
 
