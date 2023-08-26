@@ -12,6 +12,7 @@ CXIndex           c_index;
 CXTranslationUnit c_unit;
 CXCursor          c_cursor;
 std::ofstream     dstfile;
+std::string       last_struct_identifier;
 
 /*
  * cxstring -> ostream helper
@@ -21,6 +22,41 @@ std::ostream& operator<<(std::ostream& stream, const CXString& str)
     stream << clang_getCString(str);
     clang_disposeString(str);
     return stream;
+}
+
+static std::string type_to_masm(CXType type)
+{
+    switch(type.kind) {
+        case CXType_Long:
+        case CXType_Int:
+        case CXType_Char32:
+            return std::string("SDWORD");
+        case CXType_ULong:
+        case CXType_UInt:
+            return std::string("DWORD");
+        case CXType_Short:
+        case CXType_Char16:
+            return std::string("SWORD");
+        case CXType_UShort:
+            return std::string("WORD");
+        case CXType_SChar:
+        case CXType_Char_S:
+            return std::string("SBYTE");
+        case CXType_UChar:
+        case CXType_Char_U:
+            return std::string("BYTE");
+        case CXType_Float:
+            return std::string("REAL4");
+        default:
+            return std::string(clang_getCString(clang_getTypeSpelling(type)));
+    }
+
+    return std::string("INVALID TYPE");
+}
+
+static std::string cursor_to_masm(CXCursor cursor)
+{
+    return type_to_masm(clang_getCursorType(cursor));
 }
 
 /*
@@ -36,6 +72,24 @@ static enum CXChildVisitResult visitor(CXCursor cursor, CXCursor parent, CXClien
     }
 
     switch(kind) {
+
+        /*
+         * struct definitions
+         */
+        case CXCursor_StructDecl: {
+            last_struct_identifier = clang_getCString(clang_getCursorSpelling(cursor));
+            dstfile << last_struct_identifier << " STRUCT 4t" << std::endl;
+            return CXChildVisit_Recurse;
+        }
+
+        /*
+         * struct member
+         */
+        case CXCursor_FieldDecl: {
+            dstfile << clang_getCursorSpelling(cursor) << " " << cursor_to_masm(cursor) << " ?" << std::endl;
+            break;
+        }
+
         /*
          * macro definition
          */
@@ -62,43 +116,19 @@ static enum CXChildVisitResult visitor(CXCursor cursor, CXCursor parent, CXClien
          * typedef declaration
          */
         case CXCursor_TypedefDecl: {
-            CXType      type = clang_getTypedefDeclUnderlyingType(cursor);
-            std::string typestr;
+            CXType      type    = clang_getTypedefDeclUnderlyingType(cursor);
+            std::string typestr = "";
 
             switch(type.kind) {
-                case CXType_Long:
-                case CXType_Int:
-                case CXType_Char32:
-                    typestr = "SDWORD";
-                    break;
-                case CXType_ULong:
-                case CXType_UInt:
-                    typestr = "DWORD";
-                    break;
-                case CXType_Short:
-                case CXType_Char16:
-                    typestr = "SWORD";
-                    break;
-                case CXType_UShort:
-                    typestr = "WORD";
-                    break;
-                case CXType_SChar:
-                case CXType_Char_S:
-                    typestr = "SBYTE";
-                    break;
-                case CXType_UChar:
-                case CXType_Char_U:
-                    typestr = "BYTE";
-                    break;
-                case CXType_Float:
-                    typestr = "REAL4";
+                case CXType_Elaborated:
+                    dstfile << last_struct_identifier << " ENDS" << std::endl;
                     break;
                 default:
-                    std::cerr << "invalid type in typedef decl" << std::endl;
+                    typestr = type_to_masm(type);
                     break;
             }
 
-            if(!typestr.empty()) {
+            if(!typestr.empty() && typestr != "INVALID TYPE") {
                 dstfile << clang_getCursorSpelling(cursor) << " TYPEDEF " << typestr << std::endl;
             }
 
@@ -111,7 +141,7 @@ static enum CXChildVisitResult visitor(CXCursor cursor, CXCursor parent, CXClien
     std::cout << "Cursor '" << clang_getCursorSpelling(cursor) << "' of kind '"
               << clang_getCursorKindSpelling(clang_getCursorKind(cursor)) << "'\n";
 
-    return CXChildVisit_Recurse;
+    return CXChildVisit_Continue;
 }
 
 /*
