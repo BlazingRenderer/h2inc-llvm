@@ -1,5 +1,6 @@
 
-#define MY_VERSION_ID 0x1001
+#define MY_VERSION_ID        0x1001
+#define MY_FUNCTION_MACRO(x) ((x) + 1)
 
 typedef int            my_int_t;
 typedef unsigned int   my_uint_t;
@@ -24,3 +25,6 @@ typedef struct my_other_struct_t {
     my_ushort_t f;
     my_float_t  g;
 } my_other_struct_t;
+
+int my_function(int a, int b, my_float_t c);
+int my_other_function(char *ptr);

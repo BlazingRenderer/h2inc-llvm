@@ -8,11 +8,15 @@
 /*
  * globals
  */
-CXIndex           c_index;
-CXTranslationUnit c_unit;
-CXCursor          c_cursor;
-std::ofstream     dstfile;
-std::string       last_struct_identifier;
+static CXIndex           c_index;
+static CXTranslationUnit c_unit;
+static CXCursor          c_cursor;
+static std::ofstream     dstfile;
+static std::string       last_struct_identifier;
+static int               num_protos = 0;
+static std::string       last_function_name;
+static int               num_args    = 0;
+static int               current_arg = 0;
 
 /*
  * cxstring -> ostream helper
@@ -24,34 +28,67 @@ std::ostream& operator<<(std::ostream& stream, const CXString& str)
     return stream;
 }
 
+static std::string typestring_to_masm(std::string s)
+{
+    std::string res = "";
+
+    /*
+     * check if its a ptr
+     */
+    if(s.back() == '*') {
+        res = "PTR ";
+        s.pop_back();
+        s.pop_back();
+    }
+
+    if(s == "long" || s == "int" || s == "signed long" || s == "signed int")
+        res.append("SDWORD");
+    else if(s == "unsigned long" || s == "unsigned int")
+        res.append("DWORD");
+    else if(s == "short" || s == "signed short")
+        res.append("SWORD");
+    else if(s == "unsigned short")
+        res.append("WORD");
+    else if(s == "char" || s == "signed char")
+        res.append("SBYTE");
+    else if(s == "unsigned char")
+        res.append("BYTE");
+    else if(s == "float")
+        res.append("REAL4");
+    else
+        res.append(s);
+
+    return res;
+}
+
 static std::string type_to_masm(CXType type)
 {
     switch(type.kind) {
         case CXType_Long:
         case CXType_Int:
         case CXType_Char32:
-            return std::string("SDWORD");
+            return "SDWORD";
         case CXType_ULong:
         case CXType_UInt:
-            return std::string("DWORD");
+            return "DWORD";
         case CXType_Short:
         case CXType_Char16:
-            return std::string("SWORD");
+            return "SWORD";
         case CXType_UShort:
-            return std::string("WORD");
+            return "WORD";
         case CXType_SChar:
         case CXType_Char_S:
-            return std::string("SBYTE");
+            return "SBYTE";
         case CXType_UChar:
         case CXType_Char_U:
-            return std::string("BYTE");
+            return "BYTE";
         case CXType_Float:
-            return std::string("REAL4");
+            return "REAL4";
         default:
-            return std::string(clang_getCString(clang_getTypeSpelling(type)));
+            return typestring_to_masm(clang_getCString(clang_getTypeSpelling(type)));
     }
 
-    return std::string("INVALID TYPE");
+    return "INVALID TYPE";
 }
 
 static std::string cursor_to_masm(CXCursor cursor)
@@ -64,14 +101,52 @@ static std::string cursor_to_masm(CXCursor cursor)
  */
 static enum CXChildVisitResult visitor(CXCursor cursor, CXCursor parent, CXClientData client_data)
 {
-    CXCursorKind kind   = clang_getCursorKind(cursor);
-    CXEvalResult result = clang_Cursor_Evaluate(cursor);
+    CXCursorKind kind = clang_getCursorKind(cursor);
 
+    /*
+     * so we don't get gcc/clang headers
+     */
     if(clang_Location_isFromMainFile(clang_getCursorLocation(cursor)) == 0) {
         return CXChildVisit_Continue;
     }
 
+    /*
+     * switch based on cursor kind
+     */
     switch(kind) {
+
+        /*
+         * function prototypes
+         */
+        case CXCursor_FunctionDecl: {
+            /*
+             * add prototype macro
+             */
+            dstfile << "@proto_" << num_protos << " TYPEDEF PROTO C";
+            last_function_name = clang_getCString(clang_getCursorSpelling(cursor));
+            num_protos += 1;
+            num_args = clang_getNumArgTypes(clang_getCursorType(cursor));
+            return CXChildVisit_Recurse;
+        }
+
+        /*
+         * function prototype parameter
+         */
+        case CXCursor_ParmDecl: {
+            dstfile << " :" << cursor_to_masm(cursor);
+            current_arg += 1;
+            if(current_arg >= num_args) {
+                current_arg = 0;
+                num_args    = 0;
+                dstfile << std::endl
+                        << last_function_name << " PROTO @proto_" << num_protos - 1 << std::endl
+                        << std::endl;
+                break;
+            } else {
+                dstfile << ",";
+            }
+            break;
+        }
 
         /*
          * struct definitions
@@ -96,6 +171,8 @@ static enum CXChildVisitResult visitor(CXCursor cursor, CXCursor parent, CXClien
         case CXCursor_MacroDefinition: {
             CXToken     *tokens     = nullptr;
             unsigned int num_tokens = 0;
+            if(clang_Cursor_isMacroFunctionLike(cursor))
+                break;
             dstfile << clang_getCursorSpelling(cursor) << " EQU ";
             CXSourceRange range = clang_getCursorExtent(cursor);
             clang_tokenize(c_unit, range, &tokens, &num_tokens);
@@ -105,7 +182,7 @@ static enum CXChildVisitResult visitor(CXCursor cursor, CXCursor parent, CXClien
                 CXString    tokentext = clang_getTokenSpelling(c_unit, tokens[i]);
                 CXTokenKind tokenkind = clang_getTokenKind(tokens[i]);
                 if(tokenkind == CXToken_Literal) {
-                    dstfile << tokentext << std::endl;
+                    dstfile << tokentext << std::endl << std::endl;
                 }
             }
             clang_disposeTokens(c_unit, tokens, num_tokens);
@@ -121,7 +198,7 @@ static enum CXChildVisitResult visitor(CXCursor cursor, CXCursor parent, CXClien
 
             switch(type.kind) {
                 case CXType_Elaborated:
-                    dstfile << last_struct_identifier << " ENDS" << std::endl;
+                    dstfile << last_struct_identifier << " ENDS" << std::endl << std::endl;
                     break;
                 default:
                     typestr = type_to_masm(type);
@@ -129,14 +206,12 @@ static enum CXChildVisitResult visitor(CXCursor cursor, CXCursor parent, CXClien
             }
 
             if(!typestr.empty() && typestr != "INVALID TYPE") {
-                dstfile << clang_getCursorSpelling(cursor) << " TYPEDEF " << typestr << std::endl;
+                dstfile << clang_getCursorSpelling(cursor) << " TYPEDEF " << typestr << std::endl << std::endl;
             }
 
             break;
         }
     }
-
-    clang_EvalResult_dispose(result);
 
     std::cout << "Cursor '" << clang_getCursorSpelling(cursor) << "' of kind '"
               << clang_getCursorKindSpelling(clang_getCursorKind(cursor)) << "'\n";
@@ -173,8 +248,10 @@ bool h2inc(const char *src, const char *dst)
     /*
      * run through children
      */
+    dstfile << "; Begin of file " << src << std::endl << std::endl;
     c_cursor = clang_getTranslationUnitCursor(c_unit);
     clang_visitChildren(c_cursor, visitor, nullptr);
+    dstfile << "; End of file " << src << std::endl;
 
     /*
      * clean up memory
