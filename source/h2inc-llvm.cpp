@@ -6,6 +6,57 @@
 #include "h2inc-llvm.h"
 
 /*
+ * default facilities
+ */
+
+extern h2inc::facility *masm_facility;
+
+struct visitor_client_data {
+    std::ofstream    file;
+    h2inc::facility *facility;
+};
+
+/*
+ * cursor visitor function
+ */
+static enum CXChildVisitResult new_visitor(CXCursor cursor, CXCursor parent, CXClientData client_data)
+{
+    CXCursorKind     kind     = clang_getCursorKind(cursor);
+    std::ofstream   *file     = &((visitor_client_data *)client_data)->file;
+    h2inc::facility *facility = ((visitor_client_data *)client_data)->facility;
+
+    if(kind == CXCursor_TypedefDecl) {
+        facility->write_typedef(file, clang_getCString(clang_getCursorSpelling(cursor)),
+                                clang_getCString(clang_getTypeSpelling(clang_getTypedefDeclUnderlyingType(cursor))));
+    }
+
+    return CXChildVisit_Continue;
+}
+
+/*
+ * process (advanced)
+ */
+bool h2inc::run_advanced(std::string src, std::string dst, h2inc::facility *f)
+{
+    visitor_client_data client_data;
+
+    CXIndex           index = clang_createIndex(0, 0);
+    CXTranslationUnit unit  = clang_parseTranslationUnit(index, src.c_str(), nullptr, 0, nullptr, 0,
+                                                         CXTranslationUnit_DetailedPreprocessingRecord);
+
+    client_data.file.open(dst, std::ofstream::out);
+    client_data.facility = f;
+    CXCursor cursor      = clang_getTranslationUnitCursor(unit);
+    clang_visitChildren(cursor, new_visitor, &client_data);
+    client_data.file.close();
+
+    clang_disposeTranslationUnit(unit);
+    clang_disposeIndex(index);
+
+    return true;
+}
+
+/*
  * globals
  */
 static CXIndex           c_index;
@@ -222,13 +273,14 @@ static enum CXChildVisitResult visitor(CXCursor cursor, CXCursor parent, CXClien
 /*
  * process func
  */
-bool h2inc(const char *src, const char *dst)
+bool h2inc::run(std::string src, std::string dst)
 {
     /*
      * open source file
      */
     c_index = clang_createIndex(0, 0);
-    c_unit = clang_parseTranslationUnit(c_index, src, nullptr, 0, nullptr, 0, CXTranslationUnit_DetailedPreprocessingRecord);
+    c_unit  = clang_parseTranslationUnit(c_index, src.c_str(), nullptr, 0, nullptr, 0,
+                                         CXTranslationUnit_DetailedPreprocessingRecord);
     if(c_unit == nullptr) {
         std::cerr << "failed to process " << src << std::endl;
         return false;
@@ -271,5 +323,6 @@ bool h2inc(const char *src, const char *dst)
  */
 int main(int argc, char *argv[])
 {
-    return h2inc(argv[1], argv[2]) ? 0 : 1;
+    h2inc::run(argv[1], argv[2]);
+    return 0;
 }
