@@ -1,17 +1,3 @@
-# h2inc-llvm
-
-A FOSS reimplementation of Microsoft's h2inc tool using libclang (LLVM), written in C++17.
-
-It takes C headers and converts them to MASM-compatible `.inc` files for use in assembly code.
-
-## Goals
-
-- Full feature parity with the original h2inc.
-- NASM output mode and other dialects.
-- Command-line switches similar to the original h2inc.
-
-## License
-
 MIT License
 
 Copyright (c) 2024 erysdren (it/they/she)
