@@ -125,6 +125,7 @@ static std::string cursor_to_masm(CXCursor cursor)
 static enum CXChildVisitResult visitor(CXCursor cursor, CXCursor parent, CXClientData client_data)
 {
     CXCursorKind kind = clang_getCursorKind(cursor);
+	h2inc_config *config = (h2inc_config *)client_data;
 
     /*
      * so we don't get gcc/clang headers
@@ -133,28 +134,24 @@ static enum CXChildVisitResult visitor(CXCursor cursor, CXCursor parent, CXClien
         return CXChildVisit_Continue;
     }
 
-    /*
-     * switch based on cursor kind
-     */
     switch(kind) {
 
-        /*
-         * function prototypes
-         */
+		// function prototypes
         case CXCursor_FunctionDecl: {
-            /*
-             * add prototype macro
-             */
-            dstfile << "@proto_" << num_protos << " TYPEDEF PROTO STDCALL";
+
+			// add prototype macro
+			if (config->WIN32)
+				dstfile << "@proto_" << num_protos << " TYPEDEF PROTO STDCALL";
+			else
+				dstfile << "@proto_" << num_protos << " TYPEDEF PROTO C";
+
             last_function_name = clang_getCString(clang_getCursorSpelling(cursor));
             num_protos += 1;
             num_args = clang_getNumArgTypes(clang_getCursorType(cursor));
             return CXChildVisit_Recurse;
         }
 
-        /*
-         * function prototype parameter
-         */
+		// function prototypes parameter
         case CXCursor_ParmDecl: {
             dstfile << " :" << cursor_to_masm(cursor);
             current_arg += 1;
@@ -245,7 +242,7 @@ static enum CXChildVisitResult visitor(CXCursor cursor, CXCursor parent, CXClien
 /*
  * process func
  */
-bool h2inc(const char *src, const char *dst)
+bool h2inc(const char *src, const char *dst, h2inc_config &config)
 {
     /*
      * open source file
@@ -273,7 +270,7 @@ bool h2inc(const char *src, const char *dst)
      */
     dstfile << "; Begin of file " << src << std::endl << std::endl;
     c_cursor = clang_getTranslationUnitCursor(c_unit);
-    clang_visitChildren(c_cursor, visitor, nullptr);
+    clang_visitChildren(c_cursor, visitor, (void *)&config);
     dstfile << "; End of file " << src << std::endl;
 
     /*
@@ -289,10 +286,13 @@ bool h2inc(const char *src, const char *dst)
     return true;
 }
 
-/*
- * main
- */
+// main
 int main(int argc, char *argv[])
 {
-    return h2inc(argv[1], argv[2]) ? 0 : 1;
+	h2inc_config config;
+
+	// process cmd args here
+
+	// run h2inc
+	return h2inc(argv[1], argv[2], config) ? 0 : 1;
 }

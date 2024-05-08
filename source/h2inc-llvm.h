@@ -22,8 +22,41 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-/*
- * src = source filename to process
- * dst = destination file to write
+/**
+ * h2inc options and configuration
  */
-bool h2inc(const char *src, const char *dst);
+struct h2inc_config
+{
+	/**
+	 * Struct member alignment
+	 */
+	int Zp = 2;
+
+	/**
+	 * Target processor
+	 */
+	int G = 0;
+
+	/**
+	 * Compile without linking
+	 */
+	bool c = false;
+
+	/**
+	 * Disable all warnings
+	 */
+	bool w = false;
+
+	/**
+	 * Convert flat model C prototypes to MASM prototypes
+	 */
+	bool WIN32 = false;
+};
+
+/** Run h2inc
+ * @param src = source filename to process
+ * @param dst = destination file to write
+ * @param config = h2inc options
+ * @return true for success, false for failure
+ */
+bool h2inc(const char *src, const char *dst, h2inc_config &config);
