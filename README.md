@@ -4,6 +4,10 @@ A FOSS reimplementation of Microsoft's h2inc tool using libclang (LLVM), written
 
 It takes C headers and converts them to MASM-compatible `.inc` files for use in assembly code.
 
+## Notes
+
+- It currently assumes the following h2inc arguments: `/G3 /Zp4 /w /c /WIN32`
+
 ## Goals
 
 - Full feature parity with the original h2inc.
