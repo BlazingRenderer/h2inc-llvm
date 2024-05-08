@@ -34,6 +34,13 @@ struct h2inc_config
 
 	/**
 	 * Target processor
+	 * 0 = 8086
+	 * 1 = 80186
+	 * 2 = 80286
+	 * 3 = 80386
+	 * 4 = 80486
+	 * 5 = Pentium
+	 * 6 = Pentium Pro
 	 */
 	int G = 0;
 
