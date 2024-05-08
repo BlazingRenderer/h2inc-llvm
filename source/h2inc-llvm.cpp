@@ -145,7 +145,7 @@ static enum CXChildVisitResult visitor(CXCursor cursor, CXCursor parent, CXClien
             /*
              * add prototype macro
              */
-            dstfile << "@proto_" << num_protos << " TYPEDEF PROTO C";
+            dstfile << "@proto_" << num_protos << " TYPEDEF PROTO STDCALL";
             last_function_name = clang_getCString(clang_getCursorSpelling(cursor));
             num_protos += 1;
             num_args = clang_getNumArgTypes(clang_getCursorType(cursor));
