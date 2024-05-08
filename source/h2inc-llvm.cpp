@@ -58,25 +58,26 @@ static std::string typestring_to_masm(std::string s)
 	/*
 	 * check if its a ptr
 	 */
-	if(s.back() == '*') {
+	if (s.back() == '*')
+	{
 		res = "PTR ";
 		s.pop_back();
 		s.pop_back();
 	}
 
-	if(s == "long" || s == "int" || s == "signed long" || s == "signed int")
+	if (s == "long" || s == "int" || s == "signed long" || s == "signed int")
 		res.append("SDWORD");
-	else if(s == "unsigned long" || s == "unsigned int")
+	else if (s == "unsigned long" || s == "unsigned int")
 		res.append("DWORD");
-	else if(s == "short" || s == "signed short")
+	else if (s == "short" || s == "signed short")
 		res.append("SWORD");
-	else if(s == "unsigned short")
+	else if (s == "unsigned short")
 		res.append("WORD");
-	else if(s == "char" || s == "signed char")
+	else if (s == "char" || s == "signed char")
 		res.append("SBYTE");
-	else if(s == "unsigned char")
+	else if (s == "unsigned char")
 		res.append("BYTE");
-	else if(s == "float")
+	else if (s == "float")
 		res.append("REAL4");
 	else
 		res.append(s);
@@ -86,7 +87,8 @@ static std::string typestring_to_masm(std::string s)
 
 static std::string type_to_masm(CXType type)
 {
-	switch(type.kind) {
+	switch (type.kind)
+	{
 		case CXType_Long:
 		case CXType_Int:
 		case CXType_Char32:
@@ -128,11 +130,11 @@ static enum CXChildVisitResult visitor(CXCursor cursor, CXCursor parent, CXClien
 	h2inc_config *config = (h2inc_config *)client_data;
 
 	// so we don't get gcc/clang headers
-	if(clang_Location_isFromMainFile(clang_getCursorLocation(cursor)) == 0) {
+	if (clang_Location_isFromMainFile(clang_getCursorLocation(cursor)) == 0)
 		return CXChildVisit_Continue;
-	}
 
-	switch(kind) {
+	switch (kind)
+	{
 		// function prototypes
 		case CXCursor_FunctionDecl:
 		{
@@ -153,14 +155,17 @@ static enum CXChildVisitResult visitor(CXCursor cursor, CXCursor parent, CXClien
 		{
 			dstfile << " :" << cursor_to_masm(cursor);
 			current_arg += 1;
-			if(current_arg >= num_args) {
+			if (current_arg >= num_args)
+			{
 				current_arg = 0;
 				num_args	= 0;
 				dstfile << std::endl
 						<< last_function_name << " PROTO @proto_" << num_protos - 1 << std::endl
 						<< std::endl;
 				break;
-			} else {
+			}
+			else
+			{
 				dstfile << ",";
 			}
 			break;
@@ -250,7 +255,8 @@ bool h2inc(const char *src, const char *dst, h2inc_config &config)
 	 */
 	c_index = clang_createIndex(0, 0);
 	c_unit = clang_parseTranslationUnit(c_index, src, nullptr, 0, nullptr, 0, CXTranslationUnit_DetailedPreprocessingRecord);
-	if(c_unit == nullptr) {
+	if (c_unit == nullptr)
+	{
 		std::cerr << "failed to process " << src << std::endl;
 		return false;
 	}
@@ -261,7 +267,8 @@ bool h2inc(const char *src, const char *dst, h2inc_config &config)
 	 * open destination file
 	 */
 	dstfile.open(dst, std::ofstream::out);
-	if(!dstfile.is_open()) {
+	if (!dstfile.is_open())
+	{
 		std::cerr << "failed to open destination file " << dst << std::endl;
 		return false;
 	}
