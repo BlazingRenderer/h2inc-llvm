@@ -51,6 +51,11 @@ struct h2inc_config
 	 * Convert flat model C prototypes to MASM prototypes
 	 */
 	bool WIN32 = false;
+
+	/**
+	 * Suppress startup banner
+	 */
+	bool nologo = false;
 };
 
 /** Run h2inc
